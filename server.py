@@ -1,5 +1,6 @@
 import asyncio
-import json        
+import json
+import argparse
         
 class ChatServerProtocol(asyncio.Protocol):
     def __init__(self, connections):
@@ -18,10 +19,17 @@ class ChatServerProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         message = json.loads(data.decode())
-        content = "{name}: {message}".format(**message)
-        print(content)
-        for connection in self.connections:
-            connection.write(data)
+        if message['message'] and message['name']:
+            content = "{name}: {message}".format(**message)
+            print(content)
+            for connection in self.connections:
+                connection.write(data)
+
+        else:
+            msg = dict()
+            msg['message'] = "Sorry! You sent a message without a name or data, it has not been sent."
+            msg['name'] = "[Server]"
+            self.transport.write(json.dumps(msg).encode())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Server settings")
@@ -34,7 +42,7 @@ if __name__ == "__main__":
     coro = loop.create_server(lambda: ChatServerProtocol(connections), args["addr"], args["port"])
     server = loop.run_until_complete(coro)
 
-    print('Serving on {}'.format(server.sockets[0].getsockname()))
+    print('Serving on {}:{}'.format(*server.sockets[0].getsockname()))
     try:
         loop.run_forever()
     except KeyboardInterrupt:

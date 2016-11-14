@@ -44,7 +44,7 @@ class Client(asyncio.Protocol):
 class Gui(tk.Tk):
     """GUI for chat client. Two labels and exit button at the top,
     then single-line text entry and Send button for user, finally
-    multiple-line text box and Clear button to receive messages
+    multiple-line text box to receive messages
     from chat server."""
     
     def __init__(self, parent, client):
@@ -62,18 +62,17 @@ class Gui(tk.Tk):
     def send(self):
         """Send user input from client to server, then clear Entry"""
         msg = self.mytext.get()
-        message = dict()
-        message["message"] = msg
-        message["name"] = self.user
-        self.client.transport.write(json.dumps(message).encode())
+        if msg and self.user:
+            message = dict()
+            message["message"] = msg
+            message["name"] = self.user
+            self.client.transport.write(json.dumps(message).encode())
+            self.mytext.set('')
     
     def receive(self, data):
         """Called when data is received"""
         if data:
-            self.text1.insert(tk.END, '\n' + data.strip())
-        while self.text1.count(1.0, tk.END, 
-                               "displaylines")[0] > self.maxlines:
-            self.text1.delete(1.0, 2.0)
+            self.text1.insert(1.0, data.strip() + "\n")
             
     def initialize(self):
         """Initialize the GUI components"""
@@ -112,13 +111,11 @@ class Gui(tk.Tk):
         frame4.pack()
         spacer1 = tk.Label(frame4)
         self.text1 = tk.Text(frame4, width=50, height=self.maxlines)
-        button3 = tk.Button(frame4, text="Clear",
-                            command=lambda: self.text1.delete(1.0, tk.END))
+        
         spacer2 = tk.Label(frame4)
         spacer1.pack()
         self.text1.pack()
-        spacer2.pack()
-        button3.pack() 
+        spacer2.pack() 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Client settings")
@@ -127,8 +124,6 @@ if __name__ == "__main__":
     parser.add_argument("--port", default=50000, type=int)
     parser.add_argument("--nogui", default=False, type=bool)
     args = vars(parser.parse_args())
-    if executable.endswith("pythonw.exe"):
-        args["user"] = input("Choose your username: ")
 
     loop = asyncio.get_event_loop()
     userClient = Client(loop, args["user"])
