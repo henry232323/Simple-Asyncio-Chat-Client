@@ -22,18 +22,24 @@ class ChatServerProtocol(asyncio.Protocol):
         print(content)
         for connection in self.connections:
             connection.write(data)
-            
-connections = []
-loop = asyncio.get_event_loop()
-coro = loop.create_server(lambda: ChatServerProtocol(connections), "localhost", 50000)
-server = loop.run_until_complete(coro)
 
-print('Serving on {}'.format(server.sockets[0].getsockname()))
-try:
-    loop.run_forever()
-except KeyboardInterrupt:
-    pass
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Server settings")
+    parser.add_argument("--addr", default="127.0.0.1", type=str)
+    parser.add_argument("--port", default=50000, type=int)
+    args = vars(parser.parse_args())
+                
+    connections = []
+    loop = asyncio.get_event_loop()
+    coro = loop.create_server(lambda: ChatServerProtocol(connections), args["addr"], args["port"])
+    server = loop.run_until_complete(coro)
 
-server.close()
-loop.run_until_complete(server.wait_closed())
-loop.close()
+    print('Serving on {}'.format(server.sockets[0].getsockname()))
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+
+    server.close()
+    loop.run_until_complete(server.wait_closed())
+    loop.close()

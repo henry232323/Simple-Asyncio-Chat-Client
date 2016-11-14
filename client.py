@@ -2,6 +2,7 @@ import asyncio
 import json
 import tkinter as tk
 import argparse
+from sys import executable
 
 class Client(asyncio.Protocol):
     def __init__(self, loop, user, **kwargs):
@@ -126,6 +127,8 @@ if __name__ == "__main__":
     parser.add_argument("--port", default=50000, type=int)
     parser.add_argument("--nogui", default=False, type=bool)
     args = vars(parser.parse_args())
+    if executable.endswith("pythonw.exe"):
+        args["user"] = input("Choose your username: ")
 
     loop = asyncio.get_event_loop()
     userClient = Client(loop, args["user"])
