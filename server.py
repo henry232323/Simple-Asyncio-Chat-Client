@@ -5,17 +5,28 @@ import argparse
 class ChatServerProtocol(asyncio.Protocol):
     def __init__(self, connections):
         self.connections = connections
-    
+        self.peername = ""
+        
     def connection_made(self, transport):
         self.connections += [transport]
-        peername = transport.get_extra_info('sockname')
-        print('Connection from {}'.format(peername))
+        self.peername = transport.get_extra_info('sockname')
+        print('Connection from {}:{}'.format(*self.peername))
         self.transport = transport
+        msg = "{}:{} connected".format(*self.peername)
+        message = make_msg(msg, "[Server]")
+        for connection in self.connections:
+            connection.write(message)
 
     def connection_lost(self, exc):
-        print(exc)
-        self.connections.remove(self.transport)
-        
+        if isinstance(exc, ConnectionResetError):
+            self.connections.remove(self.transport)
+        else:
+            print(exc)
+        err = "{}:{} disconnected".format(*self.peername)
+        message = make_msg(err, "[Server]")
+        print(err)
+        for connection in self.connections:
+            connection.write(message)
 
     def data_received(self, data):
         message = json.loads(data.decode())
@@ -26,10 +37,15 @@ class ChatServerProtocol(asyncio.Protocol):
                 connection.write(data)
 
         else:
-            msg = dict()
-            msg['message'] = "Sorry! You sent a message without a name or data, it has not been sent."
-            msg['name'] = "[Server]"
-            self.transport.write(json.dumps(msg).encode())
+            msg = make_msg("Sorry! You sent a message without a name or data, it has not been sent.",
+                           "[Server]")
+            self.transport.write(json.dumps(msg))
+
+def make_msg(message, author):
+        msg = dict()
+        msg["message"] = message
+        msg["name"] = author
+        return json.dumps(msg).encode()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Server settings")

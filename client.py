@@ -2,7 +2,7 @@ import asyncio
 import json
 import tkinter as tk
 import argparse
-from sys import executable
+from sys import executable, stdout
 
 class Client(asyncio.Protocol):
     def __init__(self, loop, user, **kwargs):
@@ -11,8 +11,7 @@ class Client(asyncio.Protocol):
         self.loop = loop
         
     def connection_made(self, transport):
-        sockname = transport.get_extra_info("sockname")
-        print("Connected to {0}:{1}".format(*sockname))
+        self.sockname = transport.get_extra_info("sockname")
         self.transport = transport
         self.is_open = True
         
@@ -21,26 +20,71 @@ class Client(asyncio.Protocol):
         self.loop.stop()
 
     def data_received(self, data):
+        while not hasattr(self, "io"):
+            pass
         message = json.loads(data.decode())
         content = "{name}: {message}".format(**message)
-        print(content)
-        self.gui.receive(content)
+        if data:
+            self.io.write(content.strip() + '\n')
 
     async def getmsgs(self, loop):
+        self.io = stdoutio()
+        self.io.write("Connected to {0}:{1}\n".format(*self.sockname))
         while True:
-            message = dict()
-            message["message"] = await loop.run_in_executor(None, input, ">>> ")
-            message["name"] = self.user
-            self.transport.write(json.dumps(message).encode())
+            msg = await loop.run_in_executor(None, input, "{}: ".format(self.user))
+            message = self.make_msg(msg, self.user)
+            self.io.last_msg = "{name}: {message}".format(name=self.user, message=msg)
+            self.transport.write(message)
 
     async def getgui(self, loop):
         def executor():
             while not self.is_open:
                 pass
             self.gui = Gui(None, self)
+            self.io = self.gui.io
+            self.io.write("Connected to {0}:{1}\n".format(*self.sockname))
             self.gui.mainloop()
 
         await loop.run_in_executor(None, executor)
+
+    def make_msg(self, message, author):
+            msg = dict()
+            msg["message"] = message
+            msg["name"] = author
+            return json.dumps(msg).encode()
+
+class stdoutio(object):
+    def __init__(self):
+        self.last_msg = ""
+
+    def write(self, data):
+        if self.last_msg.strip() == data.strip():
+            return
+        else:
+            stdout.write(data.strip() + '\n')
+
+class tkio(tk.Frame):
+    def __init__(self, parent, maxlines):
+        super().__init__(parent)
+        self.parent = parent
+        self.maxlines = maxlines
+        self.pack()
+        spacer1 = tk.Label(self)
+        self.text1 = tk.Text(self, width=50, height=self.maxlines)
+        spacer2 = tk.Label(self)
+        spacer1.pack()
+        self.text1.pack()
+        spacer2.pack()
+
+    def write(self, data):
+        stdout.write(data)
+        return self.text1.insert(1.0, data)
+
+    def read(self):
+        return self.text1.get(1.0, tk.END)
+
+    def readline(self, num):
+        return self.text1.get(1.0, 1.0 + num)
 
 class Gui(tk.Tk):
     """GUI for chat client. Two labels and exit button at the top,
@@ -64,16 +108,9 @@ class Gui(tk.Tk):
         """Send user input from client to server, then clear Entry"""
         msg = self.mytext.get()
         if msg and self.user:
-            message = dict()
-            message["message"] = msg
-            message["name"] = self.user
-            self.client.transport.write(json.dumps(message).encode())
+            message = self.client.make_msg(msg, self.user)
+            self.client.transport.write(message)
             self.mytext.set('')
-    
-    def receive(self, data):
-        """Called when data is received"""
-        if data:
-            self.text1.insert(1.0, data.strip() + "\n")
             
     def initialize(self):
         """Initialize the GUI components"""
@@ -107,16 +144,8 @@ class Gui(tk.Tk):
         button2 = tk.Button(frame3, text="Send", command=self.send)
         entry1.pack()
         button2.pack()
-    
-        frame4 = tk.Frame(self)
-        frame4.pack()
-        spacer1 = tk.Label(frame4)
-        self.text1 = tk.Text(frame4, width=50, height=self.maxlines)
         
-        spacer2 = tk.Label(frame4)
-        spacer1.pack()
-        self.text1.pack()
-        spacer2.pack() 
+        self.io = tkio(self, self.maxlines)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Client settings")
