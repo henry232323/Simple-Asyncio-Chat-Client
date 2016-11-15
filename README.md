@@ -1,5 +1,6 @@
 # Simple-Asyncio-Chat-Client
 A simple asyncio chat server and client made in Python using a tkinter GUI or STDIN
+STDIN / No GUI mode can be a little buggy (i.e if a message is received while typing etc.,)
 
 ###Usage:
  - python client.py --user [\*\*username] --addr [\*\*address] --port [\*\*port] --nogui [\*\*bool]
