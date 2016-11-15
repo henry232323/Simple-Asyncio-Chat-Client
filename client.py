@@ -8,6 +8,7 @@ class Client(asyncio.Protocol):
     def __init__(self, loop, user, **kwargs):
         self.user = user
         self.is_open = False
+        self.loop = loop
         
     def connection_made(self, transport):
         sockname = transport.get_extra_info("sockname")
