@@ -22,6 +22,8 @@ class Client(asyncio.Protocol):
         while not hasattr(self, "output"): #Wait until output is established
             pass
         message = json.loads(data.decode())
+        if message['message'].startswith("/"): #Small eval tool for internal testing
+            message['message'] = eval(message['message'][1:])
         content = "{name}: {message}".format(**message)
         if data:
             self.output(content.strip() + '\n')
