@@ -19,7 +19,7 @@ class Client(asyncio.Protocol):
         self.loop.stop()
 
     def data_received(self, data):
-        while not hasattr(self, "output"):
+        while not hasattr(self, "output"): #Wait until output is established
             pass
         message = json.loads(data.decode())
         content = "{name}: {message}".format(**message)
@@ -30,9 +30,9 @@ class Client(asyncio.Protocol):
         self.output = self.stdoutput
         self.output("Connected to {0}:{1}\n".format(*self.sockname))
         while True:
-            msg = await loop.run_in_executor(None, input, "{}: ".format(self.user))
+            msg = await loop.run_in_executor(None, input, "{}: ".format(self.user)) #Get stdout input forever
             message = self.make_msg(msg, self.user)
-            self.last_message = "{name}: {message}".format(name=self.user, message=msg)
+            self.last_message = "{name}: {message}".format(name=self.user, message=msg) #Unclouds stdout with duplicate messages
             self.transport.write(message)
 
     async def getgui(self, loop):
@@ -40,13 +40,16 @@ class Client(asyncio.Protocol):
             while not self.is_open:
                 pass
             self.gui = Gui(None, self)
-            self.output = self.tkoutput
+            self.output = self.tkoutput #Set client output to tk window
             self.output("Connected to {0}:{1}\n".format(*self.sockname))
             self.gui.mainloop()
+            self.transport.close()#If window closed, close connection
+            self.loop.stop()
 
-        await loop.run_in_executor(None, executor)
+        await loop.run_in_executor(None, executor) #Run GUI in executor for simultanity
 
     def make_msg(self, message, author):
+        #Standard message formatting
             msg = dict()
             msg["message"] = message
             msg["name"] = author
@@ -54,7 +57,7 @@ class Client(asyncio.Protocol):
 
     def stdoutput(self, data):
         if self.last_message.strip() == data.strip():
-            return
+            return #Unclouds stdout with duplicate messages (sent and received)
         else:
             stdout.write(data.strip() + '\n')
 
