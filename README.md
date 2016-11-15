@@ -6,7 +6,7 @@ A simple asyncio chat server and client made in Python using a tkinter GUI or ST
  - python server.py --addr [\*\*address] --port [\*\*port]
 
 ###Defaults
- - Username defaults to "User" (unless running from IDLE, then will ask from STDIN for username)
+ - Username defaults to "User"
  - Address defaults to 127.0.0.1 (localhost)
  - Port defaults to 50000
  - Nogui defaults to False
