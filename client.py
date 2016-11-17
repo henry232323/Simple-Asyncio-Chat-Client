@@ -12,6 +12,7 @@ class Client(asyncio.Protocol):
     def connection_made(self, transport):
         self.sockname = transport.get_extra_info("sockname")
         self.transport = transport
+        self.transport.write(self.user.encode())
         self.is_open = True
         
     def connection_lost(self, exc):
@@ -21,19 +22,27 @@ class Client(asyncio.Protocol):
     def data_received(self, data):
         while not hasattr(self, "output"): #Wait until output is established
             pass
-        message = json.loads(data.decode())
-        content = "{author}: {content}".format(**message)
         if data:
+            message = json.loads(data.decode())
+            self.process_message(message)
+
+    def process_message(self, message):
+        try:
+            if message["event"] == "message":
+                content = "{timestamp} | {author}: {content}".format(**message)
+            elif message["event"] == "servermsg":
+                content = "{timestamp} | {author} {content}".format(**message)
+            else:
+                content = "{timestamp} | {author}: {content}".format(**message)
+            
             self.output(content.strip() + '\n')
+        except KeyError:
+            print("Malformed message, skipping")
 
     def send(self, data):
-        if data.startswith("/"): #Small eval tool for internal testing
-            data = eval(message['content'][1:])
-            
-        message = self.make_msg(data, self.user)
         if data and self.user:
             self.last_message = "{author}: {content}".format(author=self.user, content=data)
-            self.transport.write(message)
+            self.transport.write(data.encode())
             
     async def getmsgs(self, loop):
         self.output = self.stdoutput
@@ -54,16 +63,6 @@ class Client(asyncio.Protocol):
             self.loop.stop()
 
         await loop.run_in_executor(None, executor) #Run GUI in executor for simultanity
-
-    def make_msg(self, message, author, *event):
-            msg = dict()
-            msg["content"] = message
-            msg["author"] = author
-            if event:
-                msg["event"] = event[0]
-            else:
-                msg["event"] = "message"
-            return json.dumps(msg).encode()
 
     def stdoutput(self, data):
         if self.last_message.strip() == data.strip():
