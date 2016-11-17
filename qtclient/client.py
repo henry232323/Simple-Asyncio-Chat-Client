@@ -26,14 +26,17 @@ class Client(asyncio.Protocol):
             self.process_message(message)
 
     def process_message(self, message):
-        if message["event"] == "message":
-            content = "{author}: {content}".format(**message)
-        elif message["event"] == "servermsg":
-            content = "{author} {content}".format(**message)
-        else:
-            content = "{author}: {content}".format(**message)
+        try:
+            if message["event"] == "message":
+                content = "{author}: {content}".format(**message)
+            elif message["event"] == "servermsg":
+                content = "{author} {content}".format(**message)
+            else:
+                content = "{author}: {content}".format(**message)
             
-        self.output(content.strip() + '\n')
+            self.output(content.strip() + '\n')
+        except KeyError:
+            print("Malformed message, skipping")
 
     def send(self, data): 
         self.transport.write(self.make_msg(data, self.user, "message"))
