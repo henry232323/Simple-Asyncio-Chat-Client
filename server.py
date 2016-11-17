@@ -1,21 +1,19 @@
 import asyncio
 import json
 import argparse
+from datetime import datetime
         
 class ChatServerProtocol(asyncio.Protocol):
-    def __init__(self, connections):
+    def __init__(self, connections, users):
         self.connections = connections
+        self.users = users
         self.peername = ""
+        self.user = None
         
     def connection_made(self, transport):
         self.connections += [transport]
         self.peername = transport.get_extra_info('sockname')
-        print('Connection from {}:{}'.format(*self.peername))
         self.transport = transport
-        msg = "{}:{} connected".format(*self.peername)
-        message = self.make_msg(msg, "[Server]", "servermsg")
-        for connection in self.connections:
-            connection.write(message)
 
     def connection_lost(self, exc):
         if isinstance(exc, ConnectionResetError):
@@ -29,28 +27,40 @@ class ChatServerProtocol(asyncio.Protocol):
             connection.write(message)
 
     def data_received(self, data):
-        message = json.loads(data.decode())
-        if message['author'] and message['content']:
-            if message["event"] == "message":
-                content = "{author}: {content}".format(**message)
-            elif message["event"] == "servermsg":
-                content = "{author} {content}".format(**message)
+        if data:
+            if not self.user:
+                user = data.decode()
+                if not user.isalpha():
+                    self.transport.write(self.make_msg("Your name must be alphanumeric!", "[Server]", "servermsg"))
+                    self.transport.close()
+                else:
+                    self.user = data.decode()
+                    print('{} connected ({}:{})'.format(self.user, *self.peername))
+                    msg = '{} connected ({}:{})'.format(self.user, *self.peername)
+                    message = self.make_msg(msg, "[Server]", "servermsg")
+                    
+                    for connection in self.connections:
+                        connection.write(message)
             else:
-                content = "{author}: {content}".format(**message)
-                
-            print(content)
-            for connection in self.connections:
-                connection.write(data)
+                message = data.decode()
+                print("{}: {}".format(self.user, message))
+                msg = self.make_msg(message, self.user)
+                for connection in self.connections:
+                    connection.write(msg)
 
         else:
             msg = self.make_msg("Sorry! You sent a message without a name or data, it has not been sent.",
                            "[Server]", "servermsg")
-            self.transport.write(json.dumps(msg))
+            self.transport.write(msg)
 
     def make_msg(self, message, author, *event):
             msg = dict()
             msg["content"] = message
             msg["author"] = author
+            time = datetime.utcnow()
+            msg["timestamp"] = "{hour}:{minute}:{sec}".format(hour=str(time.hour).zfill(2),
+                                                              minute=str(time.minute).zfill(2),
+                                                              sec=str(time.second).zfill(2))
             if event:
                 msg["event"] = event[0]
             else:
@@ -64,8 +74,9 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
                 
     connections = []
+    users = dict()
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(lambda: ChatServerProtocol(connections), args["addr"], args["port"])
+    coro = loop.create_server(lambda: ChatServerProtocol(connections, users), args["addr"], args["port"])
     server = loop.run_until_complete(coro)
 
     print('Serving on {}:{}'.format(*server.sockets[0].getsockname()))

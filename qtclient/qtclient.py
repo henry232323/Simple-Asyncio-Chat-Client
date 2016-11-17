@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtGui import QIcon, QFont, QTextCursor
 from PyQt5.QtCore import Qt
 from quamash import QEventLoop
 
@@ -13,7 +13,7 @@ class Gui(QWidget):
         self.client = client
         self.client.output = self.output
         self.loop = loop
-        self.resize(350, 300)
+        self.resize(400, 300)
         self.setWindowTitle('Garbage Chat')
         self.setWindowIcon(QIcon('xMpZUxES.jpg'))
         self.maxlines = 15
@@ -25,8 +25,8 @@ class Gui(QWidget):
         self.userInput.setText("")
 
     def output(self, data):
-        self.outTE.setText((data + self.outTE.toPlainText()).strip() + "\n")
-        self.outTE.resize(self.outTE.sizeHint())
+        self.outTE.insertPlainText(data)
+        self.set_text_cursor_pos(-1)
             
     def initialize(self):
         while not self.client.user:
@@ -41,14 +41,15 @@ class Gui(QWidget):
         self.outTE = QTextEdit("", self)
         self.outTE.setReadOnly(True)
         self.outTE.setMouseTracking(True)
+        self.outTE.resize(362,200)
         self.outTE.textSelected = False
-        self.outTE.move(50,50)
+        self.outTE.move(25,37)
 
         sendButton = QPushButton("Send")
         sendButton.clicked.connect(self.send)
 
         userInput = QLineEdit(self)
-        userInput.setStyleSheet("background: white; width:225px; border:2px solid #444444; font-size: 13px;")
+        userInput.setStyleSheet("background: white; width:300px; border:2px solid #444444; font-size: 13px;")
         self.userInput = userInput
         
         hbox = QHBoxLayout()
@@ -61,12 +62,23 @@ class Gui(QWidget):
         vbox.addLayout(hbox)
 
         self.setLayout(vbox)
-        
+
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
             self.close()
         if e.key() == Qt.Key_Return:
             self.send()
+
+    def get_text_cursor(self):
+        return self.outTE.textCursor()
+
+    def set_text_cursor_pos(self, value):
+        tc = self.get_text_cursor()
+        tc.setPosition(value, QTextCursor.KeepAnchor)
+        self.outTE.setTextCursor(tc)
+
+    def get_text_cursor_pos(self):
+        return self.get_text_cursor().position()
             
 class App(QApplication):
     def __init__(self):
