@@ -22,20 +22,25 @@ class Client(asyncio.Protocol):
         while not hasattr(self, "output"): #Wait until output is established
             pass
         message = json.loads(data.decode())
-        if message['message'].startswith("/"): #Small eval tool for internal testing
-            message['message'] = eval(message['message'][1:])
-        content = "{name}: {message}".format(**message)
+        content = "{author}: {content}".format(**message)
         if data:
             self.output(content.strip() + '\n')
 
+    def send(self, data):
+        if data.startswith("/"): #Small eval tool for internal testing
+            data = eval(message['content'][1:])
+            
+        message = self.make_msg(data, self.user)
+        if data and self.user:
+            self.last_message = "{author}: {content}".format(author=self.user, content=data)
+            self.transport.write(message)
+            
     async def getmsgs(self, loop):
         self.output = self.stdoutput
         self.output("Connected to {0}:{1}\n".format(*self.sockname))
         while True:
             msg = await loop.run_in_executor(None, input, "{}: ".format(self.user)) #Get stdout input forever
-            message = self.make_msg(msg, self.user)
-            self.last_message = "{name}: {message}".format(name=self.user, message=msg) #Unclouds stdout with duplicate messages
-            self.transport.write(message)
+            self.send(msg)
 
     async def getgui(self, loop):
         def executor():
@@ -50,11 +55,14 @@ class Client(asyncio.Protocol):
 
         await loop.run_in_executor(None, executor) #Run GUI in executor for simultanity
 
-    def make_msg(self, message, author):
-        #Standard message formatting
+    def make_msg(self, message, author, *event):
             msg = dict()
-            msg["message"] = message
-            msg["name"] = author
+            msg["content"] = message
+            msg["author"] = author
+            if event:
+                msg["event"] = event[0]
+            else:
+                msg["event"] = "message"
             return json.dumps(msg).encode()
 
     def stdoutput(self, data):
@@ -88,12 +96,9 @@ class Gui(tk.Tk):
     def send(self):
         """Send user input from client to server, then clear Entry"""
         msg = self.mytext.get()
-        if msg and self.user:
-            message = self.client.make_msg(msg, self.user)
-            self.client.transport.write(message)
-            self.mytext.set('')
-            self.client.last_message = "{name}: {message}".format(name=self.user, message=msg)
-            
+        self.client.send(msg)
+        self.mytext.set('')
+
     def initialize(self):
         """Initialize the GUI components"""
         self.title('Chat')

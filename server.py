@@ -13,7 +13,7 @@ class ChatServerProtocol(asyncio.Protocol):
         print('Connection from {}:{}'.format(*self.peername))
         self.transport = transport
         msg = "{}:{} connected".format(*self.peername)
-        message = make_msg(msg, "[Server]")
+        message = self.make_msg(msg, "[Server]", "servermsg")
         for connection in self.connections:
             connection.write(message)
 
@@ -23,29 +23,39 @@ class ChatServerProtocol(asyncio.Protocol):
         else:
             print(exc)
         err = "{}:{} disconnected".format(*self.peername)
-        message = make_msg(err, "[Server]")
+        message = self.make_msg(err, "[Server]", "servermsg")
         print(err)
         for connection in self.connections:
             connection.write(message)
 
     def data_received(self, data):
         message = json.loads(data.decode())
-        if message['message'] and message['name']:
-            content = "{name}: {message}".format(**message)
+        if message['author'] and message['content']:
+            if message["event"] == "message":
+                content = "{author}: {content}".format(**message)
+            elif message["event"] == "servermsg":
+                content = "{author} {content}".format(**message)
+            else:
+                content = "{author}: {content}".format(**message)
+                
             print(content)
             for connection in self.connections:
                 connection.write(data)
 
         else:
-            msg = make_msg("Sorry! You sent a message without a name or data, it has not been sent.",
-                           "[Server]")
+            msg = self.make_msg("Sorry! You sent a message without a name or data, it has not been sent.",
+                           "[Server]", "servermsg")
             self.transport.write(json.dumps(msg))
 
-def make_msg(message, author):
-        msg = dict()
-        msg["message"] = message
-        msg["name"] = author
-        return json.dumps(msg).encode()
+    def make_msg(self, message, author, *event):
+            msg = dict()
+            msg["content"] = message
+            msg["author"] = author
+            if event:
+                msg["event"] = event[0]
+            else:
+                msg["event"] = "message"
+            return json.dumps(msg).encode()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Server settings")
