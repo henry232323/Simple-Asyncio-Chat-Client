@@ -1,8 +1,9 @@
 # Simple-Asyncio-Chat-Client
-A simple asyncio chat server and client made in Python using tkinter GUI or PyQt5 (or STDOUT for command line)
+A simple Asyncio chat / relay server and client (Async Protocol / Callback) using a STDOUT / tKinter UI through Async create_connection and running the input/GUI in an executor, or using the Quamash PyQt5 loop and running the create_connection as a coroutine.
 STDOUT / No GUI mode can be a little buggy (i.e if a message is received while typing etc.,)
 
 ##Usage:
+
  - ###Server
   - python server.py --addr [\*\*address] --port [\*\*port]
  
